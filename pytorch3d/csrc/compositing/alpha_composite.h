@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -32,7 +32,7 @@
 
 // CUDA declarations
 #ifdef WITH_CUDA
-torch::Tensor alphaCompositeCudaForward(
+std::tuple<torch::Tensor, torch::Tensor> alphaCompositeCudaForward(
     const torch::Tensor& features,
     const torch::Tensor& alphas,
     const torch::Tensor& points_idx);
@@ -45,7 +45,7 @@ std::tuple<torch::Tensor, torch::Tensor> alphaCompositeCudaBackward(
 #endif
 
 // C++ declarations
-torch::Tensor alphaCompositeCpuForward(
+std::tuple<torch::Tensor, torch::Tensor> alphaCompositeCpuForward(
     const torch::Tensor& features,
     const torch::Tensor& alphas,
     const torch::Tensor& points_idx);
@@ -56,7 +56,7 @@ std::tuple<torch::Tensor, torch::Tensor> alphaCompositeCpuBackward(
     const torch::Tensor& alphas,
     const torch::Tensor& points_idx);
 
-torch::Tensor alphaCompositeForward(
+std::tuple<torch::Tensor, torch::Tensor> alphaCompositeForward(
     torch::Tensor& features,
     torch::Tensor& alphas,
     torch::Tensor& points_idx) {

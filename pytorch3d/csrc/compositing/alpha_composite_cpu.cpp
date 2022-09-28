@@ -14,7 +14,7 @@
 // Epsilon float
 const float kEps = 1e-9;
 
-torch::Tensor alphaCompositeCpuForward(
+std::tuple<torch::Tensor, torch::Tensor> alphaCompositeCpuForward(
     const torch::Tensor& features,
     const torch::Tensor& alphas,
     const torch::Tensor& points_idx) {
@@ -25,11 +25,13 @@ torch::Tensor alphaCompositeCpuForward(
   const int64_t C = features.size(0);
 
   torch::Tensor result = torch::zeros({B, C, H, W}, features.options());
+  torch::Tensor weight = torch::zeros({B, K, H, W}, features.options());
 
   auto features_a = features.accessor<float, 2>();
   auto alphas_a = alphas.accessor<float, 4>();
   auto points_idx_a = points_idx.accessor<int64_t, 4>();
   auto result_a = result.accessor<float, 4>();
+  auto weight_a = weight.accessor<float, 4>();
 
   // Iterate over the batch
   for (int b = 0; b < B; ++b) {
@@ -49,13 +51,14 @@ torch::Tensor alphaCompositeCpuForward(
             }
             float alpha = alphas_a[b][k][j][i];
             result_a[b][c][j][i] += cum_alpha * alpha * features_a[c][n_idx];
+            weight_a[b][k][j][i] = cum_alpha * alpha;
             cum_alpha = cum_alpha * (1 - alpha);
           }
         }
       }
     }
   }
-  return result;
+  return std::make_tuple(result, weight);
 }
 
 std::tuple<torch::Tensor, torch::Tensor> alphaCompositeCpuBackward(

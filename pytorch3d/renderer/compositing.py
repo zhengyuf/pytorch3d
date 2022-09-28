@@ -43,13 +43,13 @@ class _CompositeAlphaPoints(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, features, alphas, points_idx):
-        pt_cld = _C.accum_alphacomposite(features, alphas, points_idx)
-
+        pt_cld, weights = _C.accum_alphacomposite(features, alphas, points_idx)
+        ctx.mark_non_differentiable(weights) # Specifying that weights doesn't require gradient, correct?
         ctx.save_for_backward(features.clone(), alphas.clone(), points_idx.clone())
-        return pt_cld
+        return pt_cld, weights
 
     @staticmethod
-    def backward(ctx, grad_output):
+    def backward(ctx, grad_output, grad_weight): # grad_weight is not used.
         grad_features = None
         grad_alphas = None
         grad_points_idx = None
