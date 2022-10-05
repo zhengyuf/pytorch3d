@@ -8,7 +8,7 @@ from typing import Optional, Tuple, TYPE_CHECKING, Union
 
 import torch
 
-from .knn import knn_points
+from .knn import knn_points, knn_gather
 
 
 if TYPE_CHECKING:
@@ -162,6 +162,8 @@ def get_point_covariances(
     points_padded: torch.Tensor,
     num_points_per_cloud: torch.Tensor,
     neighborhood_size: int,
+    neighbors: torch.Tensor = None,
+    num_neighbors: torch.Tensor = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes the per-point covariance matrices by of the 3D locations of
@@ -170,6 +172,8 @@ def get_point_covariances(
     Args:
         **points_padded**: Input point clouds as a padded tensor
             of shape `(minibatch, num_points, dim)`.
+        **neighbors: bool tensor containing possible neighbor for each point, to speed up knn.
+        Shape: (minibatch, num_points, num_points)
         **num_points_per_cloud**: Number of points per cloud
             of shape `(minibatch,)`.
         **neighborhood_size**: Number of nearest neighbors for each point
@@ -183,14 +187,30 @@ def get_point_covariances(
             of shape `(minibatch, num_points, neighborhood_size, dim)`.
     """
     # get K nearest neighbor idx for each point in the point cloud
-    k_nearest_neighbors = knn_points(
-        points_padded,
-        points_padded,
-        lengths1=num_points_per_cloud,
-        lengths2=num_points_per_cloud,
-        K=neighborhood_size,
-        return_nn=True,
-    ).knn
+    if neighbors is None:
+        k_nearest_neighbors = knn_points(
+            points_padded,
+            points_padded,
+            lengths1=num_points_per_cloud,
+            lengths2=num_points_per_cloud,
+            K=neighborhood_size,
+            return_nn=True,
+        ).knn
+    else:
+        minibatch, num_points, max_num_neighbors = neighbors.shape
+        neighbors[neighbors==num_points] = 0 # these are paddings, not used
+        p1 = points_padded.reshape(-1, 1, 3) #minibatch * num_points, 1, 3
+        # minibatch * num_points, max_num_neighbors, 3
+        p2 = knn_gather(points_padded, neighbors).reshape(-1, max_num_neighbors, 3)
+        k_nearest_neighbors = knn_points(
+            p1,
+            p2,
+            lengths1=torch.ones(minibatch * num_points, device=points_padded.device).long(),
+            lengths2=num_neighbors,
+            K=neighborhood_size,
+            return_nn=True,
+        ).knn
+        k_nearest_neighbors = k_nearest_neighbors.reshape(minibatch, num_points, neighborhood_size, 3)
     # obtain the mean of the neighborhood
     pt_mean = k_nearest_neighbors.mean(2, keepdim=True)
     # compute the diff of the neighborhood and the mean of the neighborhood

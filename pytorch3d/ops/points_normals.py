@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 def estimate_pointcloud_normals(
     pointclouds: Union[torch.Tensor, "Pointclouds"],
+    neighbors: torch.Tensor = None,
+    num_neighbors: torch.Tensor = None,
     neighborhood_size: int = 50,
     disambiguate_directions: bool = True,
     *,
@@ -33,6 +35,8 @@ def estimate_pointcloud_normals(
     Args:
       **pointclouds**: Batch of 3-dimensional points of shape
         `(minibatch, num_point, 3)` or a `Pointclouds` object.
+      **neighbors: bool tensor containing possible neighbor for each point, to speed up knn.
+        Shape: (minibatch, num_points, num_points)
       **neighborhood_size**: The size of the neighborhood used to estimate the
         geometry around each point.
       **disambiguate_directions**: If `True`, uses the algorithm from [1] to
@@ -52,6 +56,8 @@ def estimate_pointcloud_normals(
 
     curvatures, local_coord_frames = estimate_pointcloud_local_coord_frames(
         pointclouds,
+        neighbors=neighbors,
+        num_neighbors=num_neighbors,
         neighborhood_size=neighborhood_size,
         disambiguate_directions=disambiguate_directions,
         use_symeig_workaround=use_symeig_workaround,
@@ -65,6 +71,8 @@ def estimate_pointcloud_normals(
 
 def estimate_pointcloud_local_coord_frames(
     pointclouds: Union[torch.Tensor, "Pointclouds"],
+    neighbors: torch.Tensor = None,
+    num_neighbors: torch.Tensor = None,
     neighborhood_size: int = 50,
     disambiguate_directions: bool = True,
     *,
@@ -93,6 +101,8 @@ def estimate_pointcloud_local_coord_frames(
     Args:
       **pointclouds**: Batch of 3-dimensional points of shape
         `(minibatch, num_point, 3)` or a `Pointclouds` object.
+      **neighbors: bool tensor containing possible neighbor for each point, to speed up knn.
+        Shape: (minibatch, num_points, num_points)
       **neighborhood_size**: The size of the neighborhood used to estimate the
         geometry around each point.
       **disambiguate_directions**: If `True`, uses the algorithm from [1] to
@@ -136,7 +146,7 @@ def estimate_pointcloud_local_coord_frames(
     points_centered = points_padded - pcl_mean[:, None, :]
 
     # get the per-point covariance and nearest neighbors used to compute it
-    cov, knns = get_point_covariances(points_centered, num_points, neighborhood_size)
+    cov, knns = get_point_covariances(points_centered, num_points, neighborhood_size, neighbors, num_neighbors)
 
     # get the local coord frames as principal directions of
     # the per-point covariance
